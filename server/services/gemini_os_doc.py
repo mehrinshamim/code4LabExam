@@ -100,12 +100,12 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
     {code}
     ```
     {parsed_code_info}
-    Focus your documentation (especially 'code', 'variablesAndConstants', 'functions', 'explanation') on THIS specific code. If generating sections like 'detailedAlgorithm' or 'shortAlgorithm', ensure they accurately reflect the logic in the provided code.
+    Focus your documentation (especially 'code', 'variablesAndConstants', 'functions', 'explanation') on THIS specific code. If generating sections like 'detailedAlgorithm' or 'shortAlgorithm', ensure they accurately reflect the logic in the provided code.**Verify if the provided code includes the necessary output printing as described in the guidelines below. If not, mention this limitation in the 'explanation' section.**
     """
     else:
         code_instruction = """
     CODE PROVIDED BY USER: None
-    Please generate a standard, correct, and well-commented C implementation for the given question as part of the 'code' section if requested. Base other relevant sections (algorithm, explanation, etc.) on this generated code.
+    Please generate a standard, correct, and well-commented C implementation for the given question as part of the 'code' section if requested. **Crucially, ensure the generated code includes the mandatory output printing as specified in the guidelines.** Base other relevant sections (algorithm, explanation, etc.) on this generated code.
     """
 
     # Fixed version: Use raw string for the JSON template part
@@ -126,14 +126,13 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
 
     prompt = f"""
     **ROLE AND GOAL:**
-    You are an expert C programmer and Operating Systems Teaching Assistant. Your goal is to help a university student prepare for their OS Lab Exam by generating clear, accurate, and educational documentation for a given problem.
-
+    You are an expert C programmer and Operating Systems Teaching Assistant. Your goal is to help a university student prepare for their OS Lab Exam by generating clear, accurate, and educational documentation for a given problem, including functional C code with specific output requirements when requested.
+    
     **CONTEXT:**
-    The student needs to understand both the underlying OS concepts and how they are implemented in C. The output should be suitable for studying and revising for a practical lab examination. Assume the student has basic C programming knowledge but needs detailed explanations for OS algorithms and their implementation specifics.
+    The student needs to understand OS concepts and their C implementation, including how to verify the results through program output. The output should be suitable for studying for a practical lab exam. Assume the student has basic C programming knowledge but needs detailed explanations for OS algorithms and their implementation specifics.
 
     **TASK:**
-    Based on the user's question and potentially provided C code, generate the specified documentation sections. Ensure the content is accurate, easy to understand, and directly relevant to the question.
-
+    Based on the user's question and potentially provided C code, generate the specified documentation sections. Ensure accuracy, clarity, and relevance. **Pay close attention to the mandatory output requirements for generated code.**
     **INPUTS:**
 
     1.  **QUESTION:**
@@ -152,16 +151,26 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         *   If generating code, ensure it is correct, follows standard C practices, and includes meaningful comments.
         *   If analyzing provided code, base your explanations *on that code*, even if it's not the most optimal implementation (unless it's fundamentally wrong for the concept).
         *   Aim for the level of detail and clarity found in good OS textbook examples or lab manuals (like the provided FCFS/SJF/Memory Allocation examples).
+        *   **Mandatory Output in Generated Code:** When generating C code (i.e., no code provided by user), it *must* include `printf` statements to clearly display the results of the simulation or operation. See the `code` section guideline below for specific required output formats based on the problem type.
+
 
     *   **Specific Section Guidelines (Only generate content for requested sections):**
         *   `overview`: Provide a brief, high-level explanation of the core OS concept addressed in the question (e.g., what is FCFS scheduling? What is shared memory IPC?).
         *   `shortAlgorithm`: List the main steps of the algorithm concisely using a numbered list (e.g., 1., 2., 3.). Focus on the core logic and flow, omitting deep implementation details or variable names unless essential for clarity. Aim for 4-7 high-level steps, similar to the provided examples (e.g., "1. Define Structure. 2. Input data. 3. Loop/Process logic. 4. Calculate results. 5. Display output.").
         *   `detailedAlgorithm`: Provide a step-by-step, implementation-oriented algorithm. Mention key data structures (like `struct Process`), main loops, function calls, and decision logic. Number the steps clearly (e.g., 1. Define Structure, 2. Input, 3. Sort...). This should closely map to the code (provided or generated).
-        *   `code`: Present the complete C code solution. If code was provided by the user, present that code, potentially with minor formatting improvements for readability. If no code was provided, generate a functional, well-commented C implementation. Use standard libraries (like `stdio.h`, `stdlib.h`, `limits.h`, `pthread.h`, `semaphore.h`, `sys/ipc.h`, `sys/shm.h` where appropriate).
+        *   `code`: Present the complete C code solution. If code was provided by the user, present that code, potentially with minor formatting improvements for readability. If no code was provided, generate a functional, well-commented C implementation. Use standard libraries (like `stdio.h`, `stdlib.h`, `limits.h`, `pthread.h`, `semaphore.h`, `sys/ipc.h`, `sys/shm.h` where appropriate).**This generated code MUST include the appropriate output printing as specified below:**
+        *   `code`:
+            *   If code was provided: Present that code, potentially with minor formatting improvements.
+            *   If no code was provided: Generate a functional, well-commented C implementation using standard libraries. **This generated code MUST include the appropriate output printing as specified below:**
+            *   **Required Output Formats in Generated Code:**
+                *   **Memory Allocation (First/Best/Worst Fit):** Must print the final state of memory blocks, showing their size and which process ID is allocated (or 'Free'/'Not Allocated'). Use a clear table format, e.g., `printf("Block Size\\tProcess ID\\n");` followed by loops printing `printf("%d\\t\\tProcess %d\\n", block_size, process_id);` or `printf("%d\\t\\tNot Allocated\\n", block_size);`.
+                *   **CPU Scheduling (FCFS, SJF, RR, Priority):** Must print a textual Gantt chart representation (e.g., `| P1 (5) | P3 (12) | ... ` showing process ID and completion time of that segment). Must also print a final table summarizing results (PID, AT, BT, CT, TAT, WT). Use clear headers like `printf("PID\\tAT\\tBT\\tCT\\tTAT\\tWT\\n");` followed by process details. Calculate and print Average Waiting Time and Average Turnaround Time.
+                *   **Banker's Algorithm:** Must print a clear message indicating if the system is in a "Safe State" or an "Unsafe State". If safe, it must print the calculated "Safe Sequence: Px Py Pz ...".
+                *   **IPC/Synchronization (Shared Memory, Producer-Consumer):** Must include `printf` statements showing key actions from the perspective of each participant (e.g., `Parent: Writing data '...'`, `Child: Reading data '...'`, `Producer: Produced item X`, `Consumer: Consumed item Y`).
         *   `requiredModules`: List the necessary `#include` directives (e.g., `#include <stdio.h>`). For each include, briefly explain *why* it's needed (e.g., "`stdio.h`: For standard input/output functions like `printf` and `scanf`.").
         *   `variablesAndConstants`: Describe the key variables, constants, and data structures (like `structs`) used in the code. Explain the purpose of each (e.g., "`struct Process`: Holds process details like PID, AT, BT...; `currentTime`: Tracks the simulation clock."). Align this with the `CODE ANALYSIS` if provided.
         *   `functions`: Describe the purpose and basic logic of each major function in the code (e.g., "`sortByArrivalTime()`: Sorts processes based on arrival time using bubble sort; `fcfs()`: Calculates metrics and prints Gantt chart."). Align this with the `CODE ANALYSIS` if provided.
-        *   `explanation`: Provide a holistic explanation of how the code implements the algorithm and solves the problem. Connect the algorithm steps to the code logic, variables, and functions. Explain *how* the OS concept is demonstrated. For scheduling algorithms, explain how the Gantt chart (if applicable) is derived and what it represents. For IPC/Sync problems, explain the roles of different processes/threads and synchronization primitives.
+        *   `explanation`: Provide a holistic explanation of how the code implements the algorithm and solves the problem. Connect the algorithm steps to the code logic, variables, and functions. Explain *how* the OS concept is demonstrated. For scheduling algorithms, explain how the Gantt chart (if applicable) is derived and what it represents. For IPC/Sync problems, explain the roles of different processes/threads and synchronization primitives.**Crucially, explain how the output generated by the code (e.g., the allocation table, Gantt chart, safe sequence, IPC messages) demonstrates the algorithm's behavior and results. If analyzing user-provided code that lacks the required output, explicitly state this limitation.**
 
     **OUTPUT FORMAT:**
 
