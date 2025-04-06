@@ -1,12 +1,21 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { jsPDF } from "jspdf"
 
 function DocumentationViewer({ documentation, isLoading, question, sections, handleSectionChange }) {
-  const [activeTab, setActiveTab] = useState(documentation.length > 0 ? documentation[0].title : "")
+  const [activeTab, setActiveTab] = useState('Question Overview & Concepts')
   const [showExportOptions, setShowExportOptions] = useState(false)
   const documentationRef = useRef(null)
+
+  useEffect(() => {
+    if (documentation.length > 0) {
+      const overviewSection = documentation.find(
+        section => section.title === 'Question Overview & Concepts'
+      )
+      setActiveTab(overviewSection ? overviewSection.title : documentation[0].title)
+    }
+  }, [documentation])
 
   const generatePDF = async () => {
     if (!documentationRef.current || documentation.length === 0) return
