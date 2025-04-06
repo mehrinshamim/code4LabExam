@@ -40,6 +40,14 @@ async def generate_documentation(request: DocumentationRequest):
         options=request.options
     )
 
+@app.get("/")
+async def root():
+    """Root endpoint providing API overview."""
+    return {
+        "message": "Welcome to code4LabExam API",
+        "description": "This API provides code documentation generation services using AI"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

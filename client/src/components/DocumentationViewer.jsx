@@ -3,8 +3,9 @@
 import { useState, useRef } from "react"
 import { jsPDF } from "jspdf"
 
-function DocumentationViewer({ documentation, isLoading }) {
+function DocumentationViewer({ documentation, isLoading, question, sections, handleSectionChange }) {
   const [activeTab, setActiveTab] = useState(documentation.length > 0 ? documentation[0].title : "")
+  const [showExportOptions, setShowExportOptions] = useState(false)
   const documentationRef = useRef(null)
 
   const generatePDF = async () => {
@@ -18,8 +19,41 @@ function DocumentationViewer({ documentation, isLoading }) {
     pdf.text("OS Lab Documentation", 105, yOffset, { align: "center" })
     yOffset += 15
 
-    // Process each section
+    // Add the question
+    if (question) {
+      pdf.setFontSize(12)
+      pdf.text("Question:", 10, yOffset)
+      yOffset += 7
+      
+      pdf.setFontSize(10)
+      const questionLines = pdf.splitTextToSize(question, 190)
+      pdf.text(questionLines, 10, yOffset)
+      yOffset += questionLines.length * 5 + 10
+    }
+
+    // Process each section based on user's selection
     for (const section of documentation) {
+      // Map section titles to option keys
+      const optionKey = {
+        'Question Overview & Concepts': 'overview',
+        'Short Algorithm': 'shortAlgorithm',
+        'Detailed Algorithm': 'detailedAlgorithm',
+        'Code': 'code',
+        'Required Modules': 'requiredModules',
+        'Variables & Constants': 'variablesAndConstants',
+        'Functions': 'functions',
+        'Code Explanation': 'explanation'
+      }[section.title]
+
+      // Skip if this section wasn't selected
+      if (!sections[optionKey]) continue
+
+      // Check if we need a new page
+      if (yOffset > 280) {
+        pdf.addPage()
+        yOffset = 10
+      }
+
       // Add section title
       pdf.setFontSize(14)
       pdf.text(section.title, 10, yOffset)
@@ -54,23 +88,140 @@ function DocumentationViewer({ documentation, isLoading }) {
         <h2 className="text-xl font-semibold">Documentation</h2>
 
         {documentation.length > 0 && (
-          <button
-            onClick={generatePDF}
-            className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Generate PDF
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowExportOptions(!showExportOptions)}
+              className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
+              Export Options
+            </button>
+            
+            <button
+              onClick={generatePDF}
+              className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Generate PDF
+            </button>
+          </div>
         )}
       </div>
 
       <p className="text-gray-600 mb-4">Generated documentation for your lab exam preparation</p>
+
+      {/* Export Options Panel */}
+      {showExportOptions && documentation.length > 0 && (
+        <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Select Sections for PDF Export</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="overview"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.overview}
+                onChange={() => handleSectionChange("overview")}
+              />
+              <label htmlFor="overview" className="ml-2 text-sm text-gray-700">
+                Overview
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="shortAlgorithm"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.shortAlgorithm}
+                onChange={() => handleSectionChange("shortAlgorithm")}
+              />
+              <label htmlFor="shortAlgorithm" className="ml-2 text-sm text-gray-700">
+                Short Algorithm
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="detailedAlgorithm"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.detailedAlgorithm}
+                onChange={() => handleSectionChange("detailedAlgorithm")}
+              />
+              <label htmlFor="detailedAlgorithm" className="ml-2 text-sm text-gray-700">
+                Detailed Algorithm
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="code"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.code}
+                onChange={() => handleSectionChange("code")}
+              />
+              <label htmlFor="code" className="ml-2 text-sm text-gray-700">
+                Code
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="requiredModules"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.requiredModules}
+                onChange={() => handleSectionChange("requiredModules")}
+              />
+              <label htmlFor="requiredModules" className="ml-2 text-sm text-gray-700">
+                Required Modules
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="variablesAndConstants"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.variablesAndConstants}
+                onChange={() => handleSectionChange("variablesAndConstants")}
+              />
+              <label htmlFor="variablesAndConstants" className="ml-2 text-sm text-gray-700">
+                Variables & Constants
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="functions"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.functions}
+                onChange={() => handleSectionChange("functions")}
+              />
+              <label htmlFor="functions" className="ml-2 text-sm text-gray-700">
+                Functions
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="explanation"
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                checked={sections.explanation}
+                onChange={() => handleSectionChange("explanation")}
+              />
+              <label htmlFor="explanation" className="ml-2 text-sm text-gray-700">
+                Code Explanation
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div ref={documentationRef} className="min-h-[400px]">
         {isLoading ? (
@@ -133,4 +284,3 @@ function DocumentationViewer({ documentation, isLoading }) {
 }
 
 export default DocumentationViewer
-

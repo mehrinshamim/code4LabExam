@@ -5,8 +5,6 @@ function DocumentationForm({
   setQuestion,
   code,
   setCode,
-  sections,
-  handleSectionChange,
   handleSubmit,
   isLoading,
 }) {
@@ -42,115 +40,6 @@ function DocumentationForm({
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Documentation Sections</label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="overview"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.overview}
-                  onChange={() => handleSectionChange("overview")}
-                />
-                <label htmlFor="overview" className="ml-2 text-sm text-gray-700">
-                  Question Overview & Concepts
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="shortAlgorithm"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.shortAlgorithm}
-                  onChange={() => handleSectionChange("shortAlgorithm")}
-                />
-                <label htmlFor="shortAlgorithm" className="ml-2 text-sm text-gray-700">
-                  Short Algorithm
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="detailedAlgorithm"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.detailedAlgorithm}
-                  onChange={() => handleSectionChange("detailedAlgorithm")}
-                />
-                <label htmlFor="detailedAlgorithm" className="ml-2 text-sm text-gray-700">
-                  Detailed Algorithm
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="code"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.code}
-                  onChange={() => handleSectionChange("code")}
-                />
-                <label htmlFor="code" className="ml-2 text-sm text-gray-700">
-                  Code
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="requiredModules"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.requiredModules}
-                  onChange={() => handleSectionChange("requiredModules")}
-                />
-                <label htmlFor="requiredModules" className="ml-2 text-sm text-gray-700">
-                  Required Modules
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="variablesAndConstants"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.variablesAndConstants}
-                  onChange={() => handleSectionChange("variablesAndConstants")}
-                />
-                <label htmlFor="variablesAndConstants" className="ml-2 text-sm text-gray-700">
-                  Variables & Constants
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="functions"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.functions}
-                  onChange={() => handleSectionChange("functions")}
-                />
-                <label htmlFor="functions" className="ml-2 text-sm text-gray-700">
-                  Functions
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="explanation"
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                  checked={sections.explanation}
-                  onChange={() => handleSectionChange("explanation")}
-                />
-                <label htmlFor="explanation" className="ml-2 text-sm text-gray-700">
-                  Code Explanation
-                </label>
-              </div>
-            </div>
           </div>
         </div>
 
