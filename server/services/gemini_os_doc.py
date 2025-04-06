@@ -108,6 +108,22 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
     Please generate a standard, correct, and well-commented C implementation for the given question as part of the 'code' section if requested. Base other relevant sections (algorithm, explanation, etc.) on this generated code.
     """
 
+    # Fixed version: Use raw string for the JSON template part
+    json_template = r'''
+    ```json
+    {
+        "overview": "{'overview text if requested' or ''}",
+        "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+        "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+        "code": "{'C code solution (potentially formatted with \\n and \\t) if requested' or ''}",
+        "requiredModules": "{'required modules explanation if requested, potentially with \\n between items' or ''}",
+        "variablesAndConstants": "{'variables and constants explanation if requested, potentially with \\n between items' or ''}",
+        "functions": "{'functions explanation if requested, potentially with \\n between items' or ''}",
+        "explanation": "{'holistic code explanation if requested' or ''}"
+    }
+    ```
+    '''
+
     prompt = f"""
     **ROLE AND GOAL:**
     You are an expert C programmer and Operating Systems Teaching Assistant. Your goal is to help a university student prepare for their OS Lab Exam by generating clear, accurate, and educational documentation for a given problem.
@@ -151,21 +167,9 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
 
     **CRITICAL:** Respond *only* with a valid JSON object. Do not include any text before or after the JSON structure.
     Use the following exact structure. For any section that was *not* requested in the "REQUESTED DOCUMENTATION SECTIONS" list above, use an empty string `""` as its value. Do *not* omit the key.
+    {json_template}
 
-    ```json
-    {{
-        "overview": "{'overview text if requested' or ''}",
-        "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
-        "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
-        "code": "{'C code solution (potentially formatted with \\n and \\t) if requested' or ''}",
-        "requiredModules": "{'required modules explanation if requested, potentially with \\n between items' or ''}",
-        "variablesAndConstants": "{'variables and constants explanation if requested, potentially with \\n between items' or ''}",
-        "functions": "{'functions explanation if requested, potentially with \\n between items' or ''}",
-        "explanation": "{'holistic code explanation if requested' or ''}"
-    }}
-    ```
-
-    Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (`\\n`), quotes (`\\"`), tabs (`\\t`), etc. For lists within sections (like algorithms or modules), use newline characters (`\\n`) for separation within the JSON string value.
+    Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (\\n), quotes (\"), tabs (\\t), etc. For lists within sections (like algorithms or modules), use newline characters (\\n) for separation within the JSON string value.
     """
 
     # --- AI Call ---
@@ -231,37 +235,3 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         print(f"Error generating documentation via API: {str(e)}") # Use print or logging
         # Consider raising a custom exception or returning an error structure
         raise Exception(f"Error generating documentation via API: {str(e)}") # Or use HTTPException if in a web context
-
-# --- Example Usage ---
-# question_example = "Simulate the FCFS CPU scheduling algorithm to find turnaround time and waiting time."
-# code_example = """
-# // ... (FCFS code) ...
-# """
-# options_example = {
-#     "overview": True,
-#     "shortAlgorithm": True, # Request short algorithm
-#     "detailedAlgorithm": True,
-#     "code": True,
-#     "requiredModules": True,
-#     "variablesAndConstants": True,
-#     "functions": True,
-#     "explanation": True
-# }
-
-# generated_docs = generate_documentation_with_ai(question_example, code_example, options_example)
-# print(json.dumps(generated_docs, indent=4))
-
-# Example for a case without code provided:
-# question_no_code = "Explain and implement the Banker's algorithm for deadlock avoidance."
-# options_no_code = {
-#     "overview": True,
-#     "shortAlgorithm": True,
-#     "detailedAlgorithm": True,
-#     "code": True, # Ask AI to generate code
-#     "requiredModules": True,
-#     "variablesAndConstants": True,
-#     "functions": True,
-#     "explanation": True
-# }
-# generated_docs_no_code = generate_documentation_with_ai(question_no_code, None, options_no_code)
-# print(json.dumps(generated_docs_no_code, indent=4))
