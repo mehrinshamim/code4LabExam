@@ -63,6 +63,7 @@ class CParser:
         
         return result
 
+
 def generate_documentation_with_ai(question: str, code: Optional[str], options: Dict[str, bool]):
     """Generate documentation sections using Gemini AI with an enhanced prompt."""
 
@@ -99,7 +100,7 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
     {code}
     ```
     {parsed_code_info}
-    Focus your documentation (especially 'code', 'variablesAndConstants', 'functions', 'explanation') on THIS specific code. If generating sections like 'detailedAlgorithm', ensure it accurately reflects the logic in the provided code.
+    Focus your documentation (especially 'code', 'variablesAndConstants', 'functions', 'explanation') on THIS specific code. If generating sections like 'detailedAlgorithm' or 'shortAlgorithm', ensure they accurately reflect the logic in the provided code.
     """
     else:
         code_instruction = """
@@ -125,7 +126,7 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
     2.  {code_instruction}
 
     3.  **REQUESTED DOCUMENTATION SECTIONS:**
-        {options_list if options_list else "No specific sections requested (though this shouldn't happen in practice)."}
+        {options_list if options_list else "No specific sections requested."}
 
     **INSTRUCTIONS FOR GENERATING SECTIONS:**
 
@@ -134,17 +135,17 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         *   Be accurate regarding OS concepts and C implementation details.
         *   If generating code, ensure it is correct, follows standard C practices, and includes meaningful comments.
         *   If analyzing provided code, base your explanations *on that code*, even if it's not the most optimal implementation (unless it's fundamentally wrong for the concept).
-        *   Aim for the level of detail and clarity found in good OS textbook examples or lab manuals (like the provided FCFS/SJF examples).
+        *   Aim for the level of detail and clarity found in good OS textbook examples or lab manuals (like the provided FCFS/SJF/Memory Allocation examples).
 
     *   **Specific Section Guidelines (Only generate content for requested sections):**
-        *   `overview`: Provide a brief, high-level explanation of the core OS concept addressed in the question (e.g., what is FCFS scheduling?).
-        *   `shortAlgorithm`: List the main steps of the algorithm concisely, often using bullet points or a numbered list. Focus on the logic, not deep implementation details.
-        *   `detailedAlgorithm`: Provide a step-by-step, implementation-oriented algorithm. Mention key data structures (like `struct Process`), main loops, and decision logic. Number the steps clearly (e.g., 1. Define Structure, 2. Input, 3. Sort...). This should closely map to the code (provided or generated).
-        *   `code`: Present the complete C code solution. If code was provided by the user, present that code, potentially with minor formatting improvements for readability. If no code was provided, generate a functional, well-commented C implementation. Use standard libraries (like `stdio.h`, `stdlib.h`, `limits.h` where appropriate).
+        *   `overview`: Provide a brief, high-level explanation of the core OS concept addressed in the question (e.g., what is FCFS scheduling? What is shared memory IPC?).
+        *   `shortAlgorithm`: List the main steps of the algorithm concisely using a numbered list (e.g., 1., 2., 3.). Focus on the core logic and flow, omitting deep implementation details or variable names unless essential for clarity. Aim for 4-7 high-level steps, similar to the provided examples (e.g., "1. Define Structure. 2. Input data. 3. Loop/Process logic. 4. Calculate results. 5. Display output.").
+        *   `detailedAlgorithm`: Provide a step-by-step, implementation-oriented algorithm. Mention key data structures (like `struct Process`), main loops, function calls, and decision logic. Number the steps clearly (e.g., 1. Define Structure, 2. Input, 3. Sort...). This should closely map to the code (provided or generated).
+        *   `code`: Present the complete C code solution. If code was provided by the user, present that code, potentially with minor formatting improvements for readability. If no code was provided, generate a functional, well-commented C implementation. Use standard libraries (like `stdio.h`, `stdlib.h`, `limits.h`, `pthread.h`, `semaphore.h`, `sys/ipc.h`, `sys/shm.h` where appropriate).
         *   `requiredModules`: List the necessary `#include` directives (e.g., `#include <stdio.h>`). For each include, briefly explain *why* it's needed (e.g., "`stdio.h`: For standard input/output functions like `printf` and `scanf`.").
         *   `variablesAndConstants`: Describe the key variables, constants, and data structures (like `structs`) used in the code. Explain the purpose of each (e.g., "`struct Process`: Holds process details like PID, AT, BT...; `currentTime`: Tracks the simulation clock."). Align this with the `CODE ANALYSIS` if provided.
         *   `functions`: Describe the purpose and basic logic of each major function in the code (e.g., "`sortByArrivalTime()`: Sorts processes based on arrival time using bubble sort; `fcfs()`: Calculates metrics and prints Gantt chart."). Align this with the `CODE ANALYSIS` if provided.
-        *   `explanation`: Provide a holistic explanation of how the code implements the algorithm and solves the problem. Connect the algorithm steps to the code logic, variables, and functions. Explain *how* the OS concept is demonstrated. For scheduling algorithms, explain how the Gantt chart (if applicable) is derived and what it represents.
+        *   `explanation`: Provide a holistic explanation of how the code implements the algorithm and solves the problem. Connect the algorithm steps to the code logic, variables, and functions. Explain *how* the OS concept is demonstrated. For scheduling algorithms, explain how the Gantt chart (if applicable) is derived and what it represents. For IPC/Sync problems, explain the roles of different processes/threads and synchronization primitives.
 
     **OUTPUT FORMAT:**
 
@@ -154,26 +155,26 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
     ```json
     {{
         "overview": "{'overview text if requested' or ''}",
-        "shortAlgorithm": "{'short algorithm text if requested' or ''}",
-        "detailedAlgorithm": "{'detailed algorithm text if requested' or ''}",
-        "code": "{'C code solution (potentially formatted) if requested' or ''}",
-        "requiredModules": "{'required modules explanation if requested' or ''}",
-        "variablesAndConstants": "{'variables and constants explanation if requested' or ''}",
-        "functions": "{'functions explanation if requested' or ''}",
+        "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+        "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+        "code": "{'C code solution (potentially formatted with \\n and \\t) if requested' or ''}",
+        "requiredModules": "{'required modules explanation if requested, potentially with \\n between items' or ''}",
+        "variablesAndConstants": "{'variables and constants explanation if requested, potentially with \\n between items' or ''}",
+        "functions": "{'functions explanation if requested, potentially with \\n between items' or ''}",
         "explanation": "{'holistic code explanation if requested' or ''}"
     }}
     ```
 
-    Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (`\\n`), quotes (`\\"`), etc.
+    Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (`\\n`), quotes (`\\"`), tabs (`\\t`), etc. For lists within sections (like algorithms or modules), use newline characters (`\\n`) for separation within the JSON string value.
     """
 
     # --- AI Call ---
     generation_config = {
-        "temperature": 0.1, # Slightly increased for variability but still focused
+        "temperature": 0.1, # Focused output
         "top_p": 0.95,
-        "top_k": 40, # Allow a bit more flexibility than top_k=1
+        "top_k": 40,
         "max_output_tokens": 8192,
-        "response_mime_type": "application/json", # Explicitly request JSON output if API supports it
+        "response_mime_type": "application/json", # Request JSON output
     }
 
     try:
@@ -188,7 +189,6 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         response_text = response.text
 
         # Basic validation/cleanup before parsing
-        # Sometimes models add ```json ... ``` markers
         response_text = re.sub(r'^```json\s*', '', response_text.strip(), flags=re.IGNORECASE)
         response_text = re.sub(r'\s*```$', '', response_text)
 
@@ -201,33 +201,45 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
                              "requiredModules", "variablesAndConstants", "functions", "explanation"}
             for key in expected_keys:
                 if key not in result:
+                    print(f"Warning: Key '{key}' missing in JSON response. Adding as empty string.")
                     result[key] = "" # Add missing keys as empty strings
+
+            # Ensure requested sections that might be empty in the response are still present
+            for option, selected in options.items():
+                 if selected and option not in result:
+                     print(f"Warning: Requested key '{option}' missing in JSON response despite being requested. Adding as empty string.")
+                     result[option] = ""
+
 
             return result
         except json.JSONDecodeError as json_err:
             print(f"Error: Failed to decode JSON response: {json_err}")
             print(f"Raw Response Text:\n---\n{response_text}\n---")
             # Fallback: Return error structure or attempt manual extraction as last resort
-            # Your original regex fallback is reasonable here if needed, but ideally
-            # the improved prompt + response_mime_type reduces the need for it.
-            return {key: f"Error parsing response for this section. Raw response might contain info." for key in options if options[key]}
+            # Your original regex fallback could go here if needed.
+            # For now, return a dict indicating error for requested sections.
+            error_result = {key: "" for key in {"overview", "shortAlgorithm", "detailedAlgorithm", "code",
+                                                "requiredModules", "variablesAndConstants", "functions", "explanation"}}
+            for option, selected in options.items():
+                if selected:
+                    error_result[option] = f"Error parsing JSON response. Raw text might contain info. Error: {json_err}"
+            return error_result
 
 
     except Exception as e:
         # Handle API errors, connection issues etc.
-        print(f"Error generating documentation: {str(e)}") # Use print or logging
+        print(f"Error generating documentation via API: {str(e)}") # Use print or logging
         # Consider raising a custom exception or returning an error structure
-        raise Exception(f"Error generating documentation: {str(e)}") # Or use HTTPException if in a web context
+        raise Exception(f"Error generating documentation via API: {str(e)}") # Or use HTTPException if in a web context
 
 # --- Example Usage ---
 # question_example = "Simulate the FCFS CPU scheduling algorithm to find turnaround time and waiting time."
 # code_example = """
-# #include <stdio.h>
-# // ... (rest of FCFS code) ...
+# // ... (FCFS code) ...
 # """
 # options_example = {
 #     "overview": True,
-#     "shortAlgorithm": False,
+#     "shortAlgorithm": True, # Request short algorithm
 #     "detailedAlgorithm": True,
 #     "code": True,
 #     "requiredModules": True,
@@ -238,3 +250,18 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
 
 # generated_docs = generate_documentation_with_ai(question_example, code_example, options_example)
 # print(json.dumps(generated_docs, indent=4))
+
+# Example for a case without code provided:
+# question_no_code = "Explain and implement the Banker's algorithm for deadlock avoidance."
+# options_no_code = {
+#     "overview": True,
+#     "shortAlgorithm": True,
+#     "detailedAlgorithm": True,
+#     "code": True, # Ask AI to generate code
+#     "requiredModules": True,
+#     "variablesAndConstants": True,
+#     "functions": True,
+#     "explanation": True
+# }
+# generated_docs_no_code = generate_documentation_with_ai(question_no_code, None, options_no_code)
+# print(json.dumps(generated_docs_no_code, indent=4))
