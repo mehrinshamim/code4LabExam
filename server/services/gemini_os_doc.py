@@ -64,67 +64,149 @@ class CParser:
         return result
 
 
-def generate_documentation_with_ai(question: str, code: Optional[str], options: Dict[str, bool]):
-    """Generate documentation sections using Gemini AI with an enhanced prompt."""
 
-    # --- Input Processing ---
-    parsed_code_info = ""
-    if code:
-        try:
-            includes = CParser.extract_includes(code)
-            functions = CParser.extract_functions(code)
-            variables = CParser.extract_variables(code) # Assuming basic extraction is sufficient
-
-            parsed_code_info = f"""
-        CODE ANALYSIS:
-        Based on static analysis, the provided C code appears to contain:
-        - Includes: {', '.join(includes) if includes else 'None detected'}
-        - Functions: {', '.join([f['name'] for f in functions]) if functions else 'None detected'}
-        - Key Variables/Structs: {', '.join([f"{v['type']} {v['name']}" for v in variables]) if variables else 'None detected'}
-        Use this analysis to inform your documentation, ensuring consistency. If the analysis seems incorrect based on the code's logic, prioritize documenting the actual code's behavior.
-        """
-        except Exception as e:
-            print(f"Warning: Code parsing failed - {e}") # Log or handle appropriately
-            parsed_code_info = "\n        CODE ANALYSIS: Could not perform static analysis on the provided code.\n"
-
-    # --- Build the Prompt ---
-    requested_sections = [option for option, selected in options.items() if selected]
-    options_list = "\n".join([f"- {section}" for section in requested_sections])
-
-    # Determine code handling instruction
-    code_instruction = ""
-    if code:
-        code_instruction = f"""
-    CODE PROVIDED BY USER:
-    ```c
-    {code}
-    ```
-    {parsed_code_info}
-    Focus your documentation (especially 'code', 'variablesAndConstants', 'functions', 'explanation') on THIS specific code. If generating sections like 'detailedAlgorithm' or 'shortAlgorithm', ensure they accurately reflect the logic in the provided code.**Verify if the provided code includes the necessary output printing as described in the guidelines below. If not, mention this limitation in the 'explanation' section.**
+def detect_language(question: str, model) -> str:
     """
-    else:
-        code_instruction = """
-    CODE PROVIDED BY USER: None
-    Please generate a standard, correct, and well-commented C implementation for the given question as part of the 'code' section if requested. **Crucially, ensure the generated code includes the mandatory output printing as specified in the guidelines.** Base other relevant sections (algorithm, explanation, etc.) on this generated code.
+    Uses Gemini to detect if the question requires a C program or a Shell script.
+
+    Args:
+        question: The OS lab question text.
+        model: The initialized Gemini model instance.
+
+    Returns:
+        "Shell" or "C". Defaults to "C" if detection is unclear.
     """
-
-    # Fixed version: Use raw string for the JSON template part
-    json_template = r'''
-    ```json
-    {
-        "overview": "{'overview text if requested' or ''}",
-        "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
-        "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
-        "code": "{'C code solution (potentially formatted with \\n and \\t) if requested' or ''}",
-        "requiredModules": "{'required modules explanation if requested, potentially with \\n between items' or ''}",
-        "variablesAndConstants": "{'variables and constants explanation if requested, potentially with \\n between items' or ''}",
-        "functions": "{'functions explanation if requested, potentially with \\n between items' or ''}",
-        "explanation": "{'holistic code explanation if requested' or ''}"
-    }
-    ```
-    '''
-
     prompt = f"""
+    Analyze the following Operating Systems lab question and determine if the primary implementation requirement is a C program or a Bash Shell Script.
+
+    QUESTION:
+    "{question}"
+
+    GUIDELINES:
+    - Assume **Bash Shell Script** if the question explicitly mentions 'shell programming', 'shell script', 'bash script', or describes tasks primarily involving file system operations (listing, checking existence, creating/deleting files based on conditions), text processing using standard Unix tools (grep, sed, awk), or managing processes from the command line, *without* requiring low-level system calls (like `fork`, `shmget`, `sem_init`, complex data structures like linked lists/structs for algorithms).
+    - Otherwise, assume **C program** is required, especially for implementing scheduling algorithms, memory management algorithms, IPC using semaphores/shared memory, Banker's algorithm, or tasks requiring direct system calls or complex data structures.
+
+    Respond with ONLY the single word "C" or "Shell". Do not include any other text, explanation, or formatting.
+    """
+
+    generation_config = {
+        "temperature": 0, # Deterministic classification
+        "max_output_tokens": 5, # Just need one word
+        "top_p": 1,
+        "top_k": 1,
+    }
+
+    try:
+        response = model.generate_content(prompt, generation_config=generation_config)
+        detected = response.text.strip().lower()
+
+        if "shell" in detected:
+            print(f"Language Detected: Shell for question: '{question[:50]}...'")
+            return "Shell"
+        else:
+            # Default to C if response is not clearly "Shell"
+            print(f"Language Detected: C (or default) for question: '{question[:50]}...'")
+            return "C"
+    except Exception as e:
+        print(f"Warning: Language detection failed: {e}. Defaulting to C.")
+        return "C"
+
+
+# Fixed version: Use raw string for the JSON template part
+c_json_template = r'''
+```json
+{
+    "overview": "{'overview text if requested' or ''}",
+    "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+    "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+    "code": "{'C code solution (potentially formatted with \\n and \\t) if requested' or ''}",
+    "requiredModules": "{'required modules explanation if requested, potentially with \\n between items' or ''}",
+    "variablesAndConstants": "{'variables and constants explanation if requested, potentially with \\n between items' or ''}",
+    "functions": "{'functions explanation if requested, potentially with \\n between items' or ''}",
+    "explanation": "{'holistic code explanation if requested' or ''}"
+}
+```
+'''
+
+shell_json_template = r'''
+```json
+{{
+    "overview": "{'overview text if requested' or ''}",
+    "shortAlgorithm": "{'short algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+    "detailedAlgorithm": "{'detailed algorithm text if requested, formatted as a numbered list with \\n between items' or ''}",
+    "code": "{'Bash script solution (potentially formatted with \\n and \\t) if requested' or ''}",
+    "requiredModules": "{'required utilities explanation if requested, potentially with \\n between items' or ''}",
+    "variablesAndConstants": "{'shell variables explanation if requested, potentially with \\n between items' or ''}",
+    "functions": "{'shell functions/blocks explanation if requested, potentially with \\n between items' or ''}",
+    "explanation": "{'holistic script explanation if requested' or ''}"
+}}
+```
+'''
+
+
+def get_shell_generation_prompt(question: str, code_instruction: str, options_list: str) -> str:
+    """Returns the prompt optimized for generating Shell script documentation."""
+    return f"""
+    **ROLE AND GOAL:**
+    You are an expert Bash Shell Scripter and Operating Systems Teaching Assistant. Your goal is to help a university student prepare for their OS Lab Exam by generating clear, accurate, and educational documentation for a Shell scripting problem, including functional Bash scripts with specific feedback requirements when requested.
+
+    **CONTEXT:**
+    The student needs to understand OS concepts achievable via Shell scripting, including how to verify results through script output/feedback. The output should be suitable for studying for a practical lab exam.
+
+    **TASK:**
+    Generate the specified documentation sections for the given Shell scripting question. Ensure accuracy, clarity, and relevance. Pay close attention to mandatory output/feedback requirements for generated Shell scripts.
+
+    **INPUTS:**
+
+    1.  **QUESTION:**
+        {question}
+
+    2.  {code_instruction}
+
+    3.  **REQUESTED DOCUMENTATION SECTIONS:**
+        {options_list if options_list else "No specific sections requested."}
+
+    **INSTRUCTIONS FOR GENERATING SECTIONS (Shell Focus):**
+
+    *   **General Guidelines:**
+        *   Use clear, concise language suitable for undergraduate students.
+        *   Be accurate regarding Shell scripting concepts and standard Unix utilities.
+        *   If analyzing provided Shell script, base explanations *on that script*.
+        *   Aim for the detail and clarity of good OS lab manuals/examples.
+        *   **Mandatory Output/Feedback in Generated Shell Script:** When generating Shell scripts, *must* include `echo` statements to provide clear user feedback as specified below.
+
+    *   **Specific Section Guidelines (Shell):**
+        *   `overview`: Brief, high-level explanation of the task the script performs.
+        *   `shortAlgorithm`: Concise, numbered list (4-7 steps) of the main sequence of shell commands and logic.
+        *   `detailedAlgorithm`: Step-by-step description mapping closely to the script's commands and control flow (loops, conditionals).
+        *   `code`:
+            *   If Shell script was provided: Present that script.
+            *   If no code was provided: Generate a functional, well-commented Bash Shell Script (`#!/bin/bash`).
+            *   **Required Output/Feedback in Generated Shell Script:**
+                *   **File/Directory Operations:** Use `echo` to provide clear user feedback. Examples:
+                    *   For a question like "Create a shell programming which lists files and folders in a directory, and save this information into a textfile.": The script should `echo` a confirmation message like `echo "Directory listing saved to output.txt."` after performing the `ls > output.txt` operation.
+                    *   For a question like "Create a shell script which checks a file exists or not in a given directory. If it doesnt exist, create that file. If it exists , delete that file.": The script must `echo` messages like `echo "File 'filename' exists. Deleting..."` or `echo "File 'filename' does not exist. Creating..."`.
+        *   `requiredModules`: Usually leave empty. Mention required command-line utilities only if they are non-standard (e.g., `jq`). Standard utilities like `ls`, `grep`, `test`, `rm`, `touch`, `echo` do not need listing.
+        *   `variablesAndConstants`: Describe important shell variables (e.g., script arguments `$1`, `$2`, loop variables, variables holding filenames/paths from user input or command substitution).
+        *   `functions`: Describe any shell functions defined (`my_func() {{ ... }}`) or explain the purpose of key command blocks/pipelines (e.g., the `if/then/else` block for checking file existence).
+        *   `explanation`: Provide a holistic explanation connecting the script's logic, commands, and variables. Explain how the task is achieved using shell features. **Crucially, explain how the `echo` feedback generated demonstrates the script's actions and results. If analyzing user-provided script lacking required feedback, state this limitation.**
+
+    **OUTPUT FORMAT:**
+
+    **CRITICAL:** Respond *only* with a valid JSON object. Do not include any text before or after the JSON structure.
+    Use the following exact structure. For any section that was *not* requested, use an empty string `""`. Do *not* omit the key.
+
+    {shell_json_template}
+
+    Ensure all string values within the JSON are properly escaped (newlines `\\n`, quotes `\\"`, tabs `\\t`, etc.). Use newline characters (`\\n`) for list separation within JSON string values.
+    """
+#havto separate the json frm prompt
+#also rename below fn to c generation prompt
+
+
+def get_c_generation_prompt(question: str, code_instruction: str, options_list: str) -> str:
+    """Returns the prompt optimized for generating C program documentation."""
+    return f"""
     **ROLE AND GOAL:**
     You are an expert C programmer and Operating Systems Teaching Assistant. Your goal is to help a university student prepare for their OS Lab Exam by generating clear, accurate, and educational documentation for a given problem, including functional C code with specific output requirements when requested.
     
@@ -176,10 +258,88 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
 
     **CRITICAL:** Respond *only* with a valid JSON object. Do not include any text before or after the JSON structure.
     Use the following exact structure. For any section that was *not* requested in the "REQUESTED DOCUMENTATION SECTIONS" list above, use an empty string `""` as its value. Do *not* omit the key.
-    {json_template}
+    {c_json_template}
 
     Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (\\n), quotes (\"), tabs (\\t), etc. For lists within sections (like algorithms or modules), use newline characters (\\n) for separation within the JSON string value.
     """
+
+
+
+
+# --- Main Orchestration Function ---
+def generate_documentation_with_ai(question: str, code: Optional[str], options: Dict[str, bool]):
+    """
+    Generates documentation using a two-step process:
+    1. Detect language (C or Shell).
+    2. Call the appropriate language-specific generation prompt.
+    """
+
+    # Step 1: Detect Language
+    language = detect_language(question, model) # Pass the model instance
+
+    # --- Prepare Inputs for Generation Prompt ---
+    is_shell_script_provided = code and code.strip().startswith("#!/")
+    parsed_code_info = ""
+
+    # Perform C parsing only if language is C and code is provided and doesn't look like shell
+    if language == "C" and code and not is_shell_script_provided:
+        try:
+            includes = CParser.extract_includes(code)
+            functions = CParser.extract_functions(code)
+            variables = CParser.extract_variables(code)
+            parsed_code_info = f"""
+        CODE ANALYSIS (C):
+        - Includes: {', '.join(includes) if includes else 'None detected'}
+        - Functions: {', '.join([f['name'] for f in functions]) if functions else 'None detected'}
+        - Key Variables/Structs: {', '.join([f"{v['type']} {v['name']}" for v in variables]) if variables else 'None detected'}
+        Use this analysis to inform your documentation.
+        """
+        except Exception as e:
+            print(f"Warning: C Code parsing failed - {e}")
+            parsed_code_info = "\n        CODE ANALYSIS: Could not perform static C code analysis.\n"
+    elif is_shell_script_provided:
+         parsed_code_info = "\n        CODE ANALYSIS: Provided code appears to be a Shell script. Analysis skipped.\n"
+
+
+    requested_sections = [option for option, selected in options.items() if selected]
+    options_list = "\n".join([f"- {section}" for section in requested_sections])
+
+    code_instruction = ""
+    code_block_lang = "c" # Default for C
+    if language == "Shell":
+        code_block_lang = "bash"
+
+    if code:
+        # Adjust code block language tag based on provided code if possible
+        if is_shell_script_provided:
+            code_block_lang = "bash"
+        elif language == "C": # Only assume C if detected language is C
+             code_block_lang = "c"
+        # If language is Shell but provided code doesn't start with #!/, still tag as bash
+        elif language == "Shell":
+             code_block_lang = "bash"
+
+
+        code_instruction = f"""
+    CODE PROVIDED BY USER:
+    ```{code_block_lang}
+    {code}
+    ```
+    {parsed_code_info}
+    Focus your documentation on THIS specific code. Ensure algorithms/explanations reflect its logic. **Verify if it includes necessary output/feedback. If not, mention this limitation in the 'explanation'.**
+    """
+    else:
+        code_instruction = f"""
+    CODE PROVIDED BY USER: None
+    Generate a standard, correct, and well-commented implementation in **{language}**. **Crucially, ensure the generated code includes the mandatory output/feedback specified in the {language} guidelines.** Base other relevant sections on this generated code.
+    """
+
+    # Step 2: Select and Call Generation Prompt
+    if language == "Shell":
+        prompt = get_shell_generation_prompt(question, code_instruction, options_list)
+    else: # Default to C
+        prompt = get_c_generation_prompt(question, code_instruction, options_list)
+
 
     # --- AI Call ---
     generation_config = {
