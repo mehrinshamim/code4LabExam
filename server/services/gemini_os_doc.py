@@ -198,7 +198,14 @@ def get_shell_generation_prompt(question: str, code_instruction: str, options_li
 
     {shell_json_template}
 
-    Ensure all string values within the JSON are properly escaped (newlines `\\n`, quotes `\\"`, tabs `\\t`, etc.). Use newline characters (`\\n`) for list separation within JSON string values.
+    **JSON FORMATTING REQUIREMENTS:**
+    - All string values must be properly escaped for JSON
+    - Use `\\n` for newlines within string values (NOT actual newline characters)
+    - Use `\\"` for quotes within string values
+    - Use `\\t` for tabs within string values
+    - Use `\\\\` for backslashes within string values
+    - The entire response must be valid JSON that can be parsed by `json.loads()`
+    - Do NOT include actual newline characters in string values - use `\\n` instead
     """
 #havto separate the json frm prompt
 #also rename below fn to c generation prompt
@@ -260,7 +267,15 @@ def get_c_generation_prompt(question: str, code_instruction: str, options_list: 
     Use the following exact structure. For any section that was *not* requested in the "REQUESTED DOCUMENTATION SECTIONS" list above, use an empty string `""` as its value. Do *not* omit the key.
     {c_json_template}
 
-    Ensure all string values within the JSON are properly escaped if they contain special characters like newlines (\\n), quotes (\"), tabs (\\t), etc. For lists within sections (like algorithms or modules), use newline characters (\\n) for separation within the JSON string value.
+    **JSON FORMATTING REQUIREMENTS:**
+    - All string values must be properly escaped for JSON
+    - Use `\\n` for newlines within string values (NOT actual newline characters)
+    - Use `\\"` for quotes within string values
+    - Use `\\t` for tabs within string values
+    - Use `\\\\` for backslashes within string values
+    - The entire response must be valid JSON that can be parsed by `json.loads()`
+    - Do NOT include actual newline characters in string values - use `\\n` instead
+    - For lists within sections (like algorithms or modules), use `\\n` for separation within the JSON string value
     """
 
 
@@ -349,6 +364,9 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         "max_output_tokens": 8192,
         "response_mime_type": "application/json", # Request JSON output
     }
+    
+    # Add explicit instruction about JSON formatting
+    prompt += "\n\n**FINAL REMINDER:** Your response must be valid JSON. Use \\n for newlines in string values, not actual newline characters. The JSON must be parseable by json.loads()."
 
     try:
         # Assuming your 'model' object has a 'generate_content' method
@@ -365,9 +383,101 @@ def generate_documentation_with_ai(question: str, code: Optional[str], options: 
         response_text = re.sub(r'^```json\s*', '', response_text.strip(), flags=re.IGNORECASE)
         response_text = re.sub(r'\s*```$', '', response_text)
 
+        # Additional JSON cleaning to handle malformed responses
+        # Fix common JSON issues that can occur with AI-generated content
         try:
-            # The response should ideally be clean JSON now
+            # Try to parse as-is first
             result = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            print(f"Initial JSON parse failed: {e}")
+            print("Attempting to fix common JSON issues...")
+            
+            # Use a more robust approach to fix JSON
+            # The main issue is unescaped newlines in string values
+            def fix_json_unescaped_strings(json_str):
+                """Fix unescaped newlines and other characters in JSON string values"""
+                import re
+                
+                # Pattern to match string values in JSON
+                # This regex matches: "key": "value with possible unescaped newlines"
+                def fix_string_value(match):
+                    key_part = match.group(1)  # The key part
+                    value_part = match.group(2)  # The value part
+                    
+                    # Escape special characters in the value
+                    value_part = value_part.replace('\\', '\\\\')  # Escape backslashes first
+                    value_part = value_part.replace('"', '\\"')    # Escape quotes
+                    value_part = value_part.replace('\n', '\\n')  # Escape newlines
+                    value_part = value_part.replace('\r', '\\r')  # Escape carriage returns
+                    value_part = value_part.replace('\t', '\\t')  # Escape tabs
+                    
+                    return f'"{key_part}": "{value_part}"'
+                
+                # Apply the fix to all string values
+                # This pattern matches: "key": "value" where value can contain unescaped newlines
+                pattern = r'"([^"]+)":\s*"([^"]*(?:\n[^"]*)*)"'
+                fixed_json = re.sub(pattern, fix_string_value, json_str, flags=re.MULTILINE)
+                
+                return fixed_json
+            
+            # Apply the fix
+            response_text = fix_json_unescaped_strings(response_text)
+            
+            try:
+                result = json.loads(response_text)
+                print("Successfully fixed and parsed JSON")
+            except json.JSONDecodeError as e2:
+                print(f"JSON fix attempt failed: {e2}")
+                print("Trying alternative approach...")
+                
+                # Alternative approach: Try to manually construct a valid JSON
+                # by extracting key-value pairs more carefully
+                try:
+                    # Find the JSON object boundaries
+                    start_brace = response_text.find('{')
+                    end_brace = response_text.rfind('}')
+                    
+                    if start_brace != -1 and end_brace != -1 and end_brace > start_brace:
+                        json_content = response_text[start_brace:end_brace + 1]
+                        
+                        # Try a different approach: replace all newlines in string values
+                        # This is more aggressive but should work for most cases
+                        import re
+                        
+                        # Find all string values and fix them
+                        def fix_all_strings(match):
+                            full_match = match.group(0)
+                            # Extract the key and value parts
+                            key_match = re.search(r'"([^"]+)":\s*"', full_match)
+                            if key_match:
+                                key = key_match.group(1)
+                                # Find the value part (everything after the first ": ")
+                                value_start = full_match.find('": "') + 4
+                                value_end = full_match.rfind('"')
+                                if value_end > value_start:
+                                    value = full_match[value_start:value_end]
+                                    # Escape the value
+                                    value = value.replace('\\', '\\\\')
+                                    value = value.replace('"', '\\"')
+                                    value = value.replace('\n', '\\n')
+                                    value = value.replace('\r', '\\r')
+                                    value = value.replace('\t', '\\t')
+                                    return f'"{key}": "{value}"'
+                            return full_match
+                        
+                        # Apply the fix using a more comprehensive pattern
+                        pattern = r'"([^"]+)":\s*"[^"]*(?:\n[^"]*)*"'
+                        fixed_content = re.sub(pattern, fix_all_strings, json_content, flags=re.MULTILINE | re.DOTALL)
+                        
+                        result = json.loads(fixed_content)
+                        print("Successfully parsed JSON with alternative approach")
+                    else:
+                        raise e2
+                        
+                except Exception as e3:
+                    print(f"Alternative approach also failed: {e3}")
+                    print(f"Cleaned response text:\n---\n{response_text[:1000]}...\n---")
+                    raise e2
 
             # Validate expected keys exist, even if empty
             expected_keys = {"overview", "shortAlgorithm", "detailedAlgorithm", "code",
